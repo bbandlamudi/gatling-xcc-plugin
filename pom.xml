@@ -182,6 +182,16 @@
                     - io.gatling.xcc.example.AdvancedSimulation
                     - io.gatling.xcc.example.JavaScriptSimulation
                     - io.gatling.xcc.example.ModuleInvocationSimulation
+                    - io.gatling.xcc.example.ChecksSimulation
+                    - io.gatling.xcc.example.ProtocolConfigurationSimulation
+                    - io.gatling.xcc.example.XccsSecureSimulation
+                    - io.gatling.xcc.example.XmlResponseChainSimulation
+                    - io.gatling.xcc.example.XPathExtractAndReuseSimulation
+                    - io.gatling.xcc.example.XmlChainSimplifiedSimulation
+                    - io.gatling.xcc.example.JsonPathSimulation
+                    - io.gatling.xcc.example.MapResultSimulation
+                    - io.gatling.xcc.example.GenerateTestDataSimulation
+                    - io.gatling.xcc.example.FeederWithSessionSimulation
                     
                     Run with: mvn gatling:test -Dgatling.simulationClass=<full.class.name>
                     Or without parameter to run all simulations
