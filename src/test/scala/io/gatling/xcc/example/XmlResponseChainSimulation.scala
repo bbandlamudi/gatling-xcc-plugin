@@ -70,7 +70,7 @@ class XmlResponseChainSimulation extends Simulation {
               <status>PROCESSED</status>
             </processedOrder>
         """)
-        .queryParam("xmlInput", "#{xmlDocument}")  // Use saved XML from session
+        .queryParam("xmlInput", "${xmlDocument}")  // Use saved XML from session
         .check(xccBodyNotEmpty)
         .check(xccSubstring("PROCESSED"))
         .build()
@@ -92,7 +92,7 @@ class XmlResponseChainSimulation extends Simulation {
             "Document inserted at: " || $uri
           )
         """)
-        .queryParam("xmlContent", "#{xmlDocument}")
+        .queryParam("xmlContent", "${xmlDocument}")
         .check(xccSubstring("Document inserted"))
         .build()
     )

@@ -41,7 +41,7 @@ class XmlChainSimplifiedSimulation extends Simulation {
               <timestamp>{fn:current-dateTime()}</timestamp>
             </processed>
         """)
-        .queryParam("orderXml", "#{fullOrder}")
+        .queryParam("orderXml", "${fullOrder}")
         .check(xccBodyNotEmpty)
         .build()
     )
@@ -107,9 +107,9 @@ class XmlChainSimplifiedSimulation extends Simulation {
               <dueDate>{fn:current-date() + xs:dayTimeDuration('P30D')}</dueDate>
             </invoice>
         """)
-        .queryParam("orderId", "#{orderId}")
-        .queryParam("customerId", "#{customerId}")
-        .queryParam("amount", "#{amount}")
+        .queryParam("orderId", "${orderId}")
+        .queryParam("customerId", "${customerId}")
+        .queryParam("amount", "${amount}")
         .check(xccBodyNotEmpty)
         .check(xccSubstring("invoice"))
         .build()
@@ -178,8 +178,8 @@ class XmlChainSimplifiedSimulation extends Simulation {
               <status>LOGGED</status>
             </auditLog>
         """)
-        .queryParam("userId", "#{userId}")
-        .queryParam("username", "#{username}")
+        .queryParam("userId", "${userId}")
+        .queryParam("username", "${username}")
         .queryParam("action", "LOGIN")
         .queryParam("timestamp", java.time.Instant.now().toString)
         .check(xccBodyNotEmpty)
@@ -248,7 +248,7 @@ class XmlChainSimplifiedSimulation extends Simulation {
               <overallStatus>APPROVED</overallStatus>
             </inventoryCheck>
         """)
-        .queryParam("orderXml", "#{pendingOrder}")
+        .queryParam("orderXml", "${pendingOrder}")
         .check(xccSubstring("APPROVED"))
         .build()
     )
@@ -268,7 +268,7 @@ class XmlChainSimplifiedSimulation extends Simulation {
             <message>Order approved and ready for processing</message>
           </result>
         """)
-        .queryParam("orderId", "#{orderId}")
+                  .queryParam("orderId", "${orderId}")
         .check(xccSubstring("APPROVED"))
         .check(xccSubstring("ready for processing"))
         .build()

@@ -39,9 +39,9 @@ class AdvancedSimulation extends Simulation {
             </document>
           )
         """)
-        .queryParam("docId", "#{docId}")
-        .queryParam("title", "#{title}")
-        .queryParam("content", "#{content}")
+        .queryParam("docId", "${docId}")
+        .queryParam("title", "${title}")
+        .queryParam("content", "${content}")
         .option("timeout", "10000")
         .build()
     )
@@ -54,7 +54,7 @@ class AdvancedSimulation extends Simulation {
           declare variable $docId external;
           fn:doc(fn:concat("/test/", $docId, ".xml"))
         """)
-        .queryParam("docId", "#{docId}")
+        .queryParam("docId", "${docId}")
         .build()
     )
     .pause(500.milliseconds)
@@ -79,7 +79,7 @@ class AdvancedSimulation extends Simulation {
             )
             else "Not found"
         """)
-        .queryParam("docId", "#{docId}")
+        .queryParam("docId", "${docId}")
         .queryParam("newContent", "Updated content")
         .build()
     )
@@ -93,7 +93,7 @@ class AdvancedSimulation extends Simulation {
           let $uri := fn:concat("/test/", $docId, ".xml")
           return xdmp:document-delete($uri)
         """)
-        .queryParam("docId", "#{docId}")
+        .queryParam("docId", "${docId}")
         .build()
     )
 

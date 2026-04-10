@@ -135,7 +135,7 @@ val scn = scenario("Advanced Test")
           <doc><id>{$docId}</id></doc>
         )
       """)
-      .variable("docId", "#{docId}")
+              .variable("docId", "${docId}")
   )
   .pause(1.second)
   .exec(
@@ -144,7 +144,7 @@ val scn = scenario("Advanced Test")
         declare variable $docId external;
         fn:doc(fn:concat("/docs/", $docId, ".xml"))
       """)
-      .variable("docId", "#{docId}")
+              .variable("docId", "${docId}")
   )
 ```
 
@@ -366,7 +366,7 @@ val scn = scenario("XML Response Chain")
         let $doc := xdmp:unquote($orderXml)
         return <processed>{$doc}</processed>
       """)
-      .queryParam("orderXml", "#{orderXml}")  // Use saved XML
+      .queryParam("orderXml", "${orderXml}")  // Use saved XML
       .check(xccBodyNotEmpty)
       .build()
   )
@@ -424,9 +424,9 @@ val scn = scenario("XPath Extract")
           <issueDate>{fn:current-date()}</issueDate>
         </invoice>
       """)
-      .queryParam("orderId", "#{orderId}")
-      .queryParam("customerId", "#{customerId}")
-      .queryParam("amount", "#{amount}")
+      .queryParam("orderId", "${orderId}")
+      .queryParam("customerId", "${customerId}")
+      .queryParam("amount", "${amount}")
       .check(xccBodyNotEmpty)
       .build()
   )
@@ -470,7 +470,7 @@ val scn = scenario("Order Processing Workflow")
           <status>APPROVED</status>
         </inventoryCheck>
       """)
-      .queryParam("orderXml", "#{orderXml}")
+      .queryParam("orderXml", "${orderXml}")
       .check(xccSubstring("APPROVED"))
       .build()
   )

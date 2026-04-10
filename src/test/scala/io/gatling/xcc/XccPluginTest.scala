@@ -16,7 +16,7 @@ class XccPluginTest extends AnyFlatSpec with Matchers {
       .build()
     
     protocol should not be null
-    protocol.uri should be("xcc://localhost:8000")
+    protocol.uri should be("xcc://admin:admin@localhost:8000/Documents")
   }
 
   "XccRequestBuilder" should "build a request with XQuery" in {

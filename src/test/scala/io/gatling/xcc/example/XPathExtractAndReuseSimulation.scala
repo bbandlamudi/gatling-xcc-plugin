@@ -12,6 +12,7 @@ import scala.xml.XML
  * 1. Get XML response -> Extract value via XPath -> Use in next invoke
  * 2. Get order XML -> Extract orderId and customerId -> Create invoice
  * 3. Query document -> Extract specific field -> Update related document
+ * 4. XML with namespaces -> Extract using namespace-aware XPath -> Use values
  */
 class XPathExtractAndReuseSimulation extends Simulation {
 
@@ -97,9 +98,9 @@ class XPathExtractAndReuseSimulation extends Simulation {
             $invoice
           )
         """)
-        .queryParam("orderId", "#{orderId}")
-        .queryParam("customerId", "#{customerId}")
-        .queryParam("amount", "#{totalAmount}")
+        .queryParam("orderId", "${orderId}")
+        .queryParam("customerId", "${customerId}")
+        .queryParam("amount", "${totalAmount}")
         .check(xccBodyNotEmpty)
         .check(xccSubstring("ISSUED"))
         .check(xccSaveAs("invoiceXml"))
@@ -175,7 +176,9 @@ class XPathExtractAndReuseSimulation extends Simulation {
           declare variable $quantity external;
           
           let $orderId := "ORD-" || fn:string(xdmp:random())
-          let $totalPrice := xs:decimal($price) * xs:integer($quantity)
+          let $priceNum := try { xs:decimal($price) } catch ($e) { 0.0 }
+          let $quantityNum := try { xs:integer($quantity) } catch ($e) { 0 }
+          let $totalPrice := $priceNum * $quantityNum
           
           let $order :=
             <order>
@@ -186,8 +189,8 @@ class XPathExtractAndReuseSimulation extends Simulation {
                 <item>
                   <productId>{$productId}</productId>
                   <productName>{$productName}</productName>
-                  <quantity>{$quantity}</quantity>
-                  <unitPrice>{$price}</unitPrice>
+                  <quantity>{$quantityNum}</quantity>
+                  <unitPrice>{$priceNum}</unitPrice>
                   <totalPrice>{$totalPrice}</totalPrice>
                 </item>
               </items>
@@ -197,9 +200,9 @@ class XPathExtractAndReuseSimulation extends Simulation {
           
           return $order
         """)
-        .queryParam("productId", "#{firstProductId}")
-        .queryParam("productName", "#{firstProductName}")
-        .queryParam("price", "#{firstProductPrice}")
+        .queryParam("productId", "${firstProductId}")
+        .queryParam("productName", "${firstProductName}")
+        .queryParam("price", "${firstProductPrice}")
         .queryParam("quantity", "5")
         .check(xccBodyNotEmpty)
         .check(xccSubstring("NEW"))
@@ -276,12 +279,81 @@ class XPathExtractAndReuseSimulation extends Simulation {
             <publishedBy>{$userId}</publishedBy>
           </document>
         """)
-        .queryParam("docId", "#{docId}")
-        .queryParam("version", "#{nextVersion}")
-        .queryParam("userId", "#{userId}")
+                  .queryParam("docId", "${docId}")
+          .queryParam("version", "${nextVersion}")
+          .queryParam("userId", "${userId}")
         .check(xccBodyNotEmpty)
         .check(xccSubstring("PUBLISHED"))
         .check(xccSubstring("publishedDate"))
+        .build()
+    )
+    .pause(500.milliseconds)
+    
+    // ========================================
+    // Example 4: XML with Namespaces
+    // ========================================
+    .exec(
+      xcc("Get Namespaced Book Data")
+        .xquery("""
+          declare namespace bk="http://example.com/book";
+          declare namespace au="http://example.com/author";
+          
+          <bk:book xmlns:bk="http://example.com/book" xmlns:au="http://example.com/author">
+            <bk:isbn>978-1234567890</bk:isbn>
+            <bk:title>XQuery in Action</bk:title>
+            <bk:price currency="USD">49.99</bk:price>
+            <au:author>
+              <au:name>John Smith</au:name>
+              <au:id>AUTH-001</au:id>
+            </au:author>
+          </bk:book>
+        """)
+        .check(xccBodyNotEmpty)
+        .check(xccSaveAs("bookXml"))
+        .build()
+    )
+    .pause(200.milliseconds)
+    
+    // Extract from namespaced XML in Scala (namespace-aware)
+    .exec(session => {
+      val bookXml = session("bookXml").as[String]
+      // Use regex to extract from namespaced XML since Scala XML doesn't handle namespaces well in this way
+      val isbnPattern = """<[^:]+:isbn>([^<]+)</[^:]+:isbn>""".r
+      val authorIdPattern = """<[^:]+:id>([^<]+)</[^:]+:id>""".r
+      
+      val isbn = isbnPattern.findFirstMatchIn(bookXml).map(_.group(1)).getOrElse("")
+      val authorId = authorIdPattern.findFirstMatchIn(bookXml).map(_.group(1)).getOrElse("")
+      
+      session
+        .set("bookIsbn", isbn)
+        .set("authorId", authorId)
+    })
+    .exec(session => {
+      println(s"[DEBUG] Extracted from namespaced XML - ISBN: ${session("bookIsbn").as[String]}, AuthorID: ${session("authorId").as[String]}")
+      session
+    })
+    
+    // Use extracted values in namespaced response
+    .exec(
+      xcc("Create Order for Namespaced Book")
+        .xquery("""
+          declare namespace ord="http://example.com/order";
+          declare variable $isbn external;
+          declare variable $authorId external;
+          
+          <ord:order xmlns:ord="http://example.com/order">
+            <ord:orderId>{'ORD-' || fn:string(xdmp:random())}</ord:orderId>
+            <ord:isbn>{$isbn}</ord:isbn>
+            <ord:authorId>{$authorId}</ord:authorId>
+            <ord:quantity>1</ord:quantity>
+            <ord:orderDate>{fn:current-date()}</ord:orderDate>
+          </ord:order>
+        """)
+        .queryParam("isbn", "${bookIsbn}")
+        .queryParam("authorId", "${authorId}")
+        .check(xccBodyNotEmpty)
+        .check(xccSubstring("ord:isbn"))
+        .check(xccSubstring("ord:authorId"))
         .build()
     )
 
