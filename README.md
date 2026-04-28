@@ -28,7 +28,7 @@ Add the dependency to your `pom.xml`:
 
 ```xml
 <dependency>
-    <groupId>io.gatling.xcc</groupId>
+    <groupId>com.marklogic.gatling.xcc</groupId>
     <artifactId>gatling-xcc-plugin</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 </dependency>
@@ -46,7 +46,7 @@ mvn clean install
 
 ```scala
 import io.gatling.core.Predef._
-import io.gatling.xcc.Predef._
+import com.marklogic.gatling.xcc.Predef._
 import scala.concurrent.duration._
 
 class BasicSimulation extends Simulation {
@@ -217,9 +217,10 @@ gatling-xcc-plugin/
 ├── src/
 │   ├── main/
 │   │   └── scala/
-│   │       └── io/
-│   │           └── gatling/
-│   │               └── xcc/
+│   │       └── com/
+│   │           └── marklogic/
+│   │               └── gatling/
+│   │                   └── xcc/
 │   │                   ├── Predef.scala
 │   │                   ├── action/
 │   │                   │   ├── XccAction.scala
@@ -232,9 +233,10 @@ gatling-xcc-plugin/
 │   │                           └── XccRequestBuilder.scala
 │   └── test/
 │       └── scala/
-│           └── io/
-│               └── gatling/
-│                   └── xcc/
+│           └── com/
+│               └── marklogic/
+│                   └── gatling/
+│                       └── xcc/
 │                       └── XccPluginTest.scala
 ```
 
@@ -244,7 +246,7 @@ gatling-xcc-plugin/
 
 ```scala
 import io.gatling.core.Predef._
-import io.gatling.xcc.Predef._
+import com.marklogic.gatling.xcc.Predef._
 
 class SecureSimulation extends Simulation {
 

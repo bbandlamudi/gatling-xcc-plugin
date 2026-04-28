@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.gatling.xcc</groupId>
+    <groupId>com.marklogic.gatling.xcc</groupId>
     <artifactId>gatling-xcc-plugin</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
@@ -177,21 +177,21 @@
                 <configuration>
                     <!-- 
                     Available simulations:
-                    - io.gatling.xcc.example.QuickTestSimulation (default)
-                    - io.gatling.xcc.example.BasicSimulation
-                    - io.gatling.xcc.example.AdvancedSimulation
-                    - io.gatling.xcc.example.JavaScriptSimulation
-                    - io.gatling.xcc.example.ModuleInvocationSimulation
-                    - io.gatling.xcc.example.ChecksSimulation
-                    - io.gatling.xcc.example.ProtocolConfigurationSimulation
-                    - io.gatling.xcc.example.XccsSecureSimulation
-                    - io.gatling.xcc.example.XmlResponseChainSimulation
-                    - io.gatling.xcc.example.XPathExtractAndReuseSimulation
-                    - io.gatling.xcc.example.XmlChainSimplifiedSimulation
-                    - io.gatling.xcc.example.JsonPathSimulation
-                    - io.gatling.xcc.example.MapResultSimulation
-                    - io.gatling.xcc.example.GenerateTestDataSimulation
-                    - io.gatling.xcc.example.FeederWithSessionSimulation
+                    - com.marklogic.gatling.xcc.example.QuickTestSimulation (default)
+                    - com.marklogic.gatling.xcc.example.BasicSimulation
+                    - com.marklogic.gatling.xcc.example.AdvancedSimulation
+                    - com.marklogic.gatling.xcc.example.JavaScriptSimulation
+                    - com.marklogic.gatling.xcc.example.ModuleInvocationSimulation
+                    - com.marklogic.gatling.xcc.example.ChecksSimulation
+                    - com.marklogic.gatling.xcc.example.ProtocolConfigurationSimulation
+                    - com.marklogic.gatling.xcc.example.XccsSecureSimulation
+                    - com.marklogic.gatling.xcc.example.XmlResponseChainSimulation
+                    - com.marklogic.gatling.xcc.example.XPathExtractAndReuseSimulation
+                    - com.marklogic.gatling.xcc.example.XmlChainSimplifiedSimulation
+                    - com.marklogic.gatling.xcc.example.JsonPathSimulation
+                    - com.marklogic.gatling.xcc.example.MapResultSimulation
+                    - com.marklogic.gatling.xcc.example.GenerateTestDataSimulation
+                    - com.marklogic.gatling.xcc.example.FeederWithSessionSimulation
                     
                     Run with: mvn gatling:test -Dgatling.simulationClass=<full.class.name>
                     Or without parameter to run all simulations
