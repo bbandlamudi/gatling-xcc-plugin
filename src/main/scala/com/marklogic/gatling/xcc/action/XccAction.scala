@@ -171,10 +171,11 @@ class XccAction(
           throw new IllegalArgumentException("Must specify exactly one of: xquery, javascript, or module")
       }
       
-      attributes.variables.foreach { case (name, valueExpr) =>
+            attributes.variables.foreach { case (name, valueExpr) =>
         valueExpr(session) match {
           case Success(value) =>
-            logger.trace(s"Setting variable: $name = $value")
+            logger.debug(s"Query parameter: $name = $value")
+            logger.debug(s"Session keys available: ${session.attributes.keys.mkString(", ")}")
             val xdmVariable = createXdmVariable(name, value)
             request.setVariable(xdmVariable)
           case Failure(error) =>

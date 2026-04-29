@@ -44,14 +44,20 @@ case class XccRequestBuilder(
   def queryParam(name: String, value: Expression[Any]): XccRequestBuilder = 
     copy(variables = variables + (name -> value))
   
-  /**
+      /**
    * Add query parameter with support for:
    * - EL expressions: "${varName}" or "#{varName}" (from session)
    * - Literal values: "literal string", 123, etc.
    */
   def queryParam(name: String, value: String): XccRequestBuilder = {
-    val expr: Expression[Any] = if (value.contains("${") || value.contains("#{")) {
-      value.el[Any]
+    val expr: Expression[Any] = if (value.contains("${")) {
+      // Parse ${varName} syntax
+      val varName = value.substring(value.indexOf("${") + 2, value.indexOf("}"))
+      (session: Session) => session(varName).validate[Any]
+    } else if (value.contains("#{")) {
+      // Parse #{varName} syntax
+      val varName = value.substring(value.indexOf("#{") + 2, value.indexOf("}"))
+      (session: Session) => session(varName).validate[Any]
     } else {
       (_: Session) => io.gatling.commons.validation.Success(value)
     }

@@ -47,7 +47,7 @@ class AdvancedSimulation extends Simulation {
     )
     .pause(500.milliseconds)
     
-    // Read document
+               // Read document and save first item to session
     .exec(
       xcc("Read Document")
         .xquery("""
@@ -55,31 +55,39 @@ class AdvancedSimulation extends Simulation {
           fn:doc(fn:concat("/test/", $docId, ".xml"))
         """)
         .queryParam("docId", "${docId}")
+        .check(xccBodyNotEmpty)
+        .check(xccSaveFirstItemAs("savedDocument"))
         .build()
     )
+    .exec(session => {
+      println(s"[DEBUG] Session after Read: savedDocument = ${session("savedDocument").asOption[String].map(_.take(100)).getOrElse("NOT SET")}...")
+      session
+    })
     .pause(500.milliseconds)
     
-    // Update document
+    // Update document - extract docId from saved document and use it
     .exec(
       xcc("Update Document")
         .xquery("""
-          declare variable $docId external;
+          declare variable $documentXml external;
           declare variable $newContent external;
           
-          let $uri := fn:concat("/test/", $docId, ".xml")
-          let $doc := fn:doc($uri)
+          let $doc := xdmp:unquote($documentXml)
+          let $extractedDocId := $doc/document/id/text()
+          let $uri := fn:concat("/test/", $extractedDocId, ".xml")
+          let $existingDoc := fn:doc($uri)
           return
-            if (fn:exists($doc))
+            if (fn:exists($existingDoc))
             then (
               xdmp:node-replace(
-                $doc/document/content,
+                $existingDoc/document/content,
                 <content>{$newContent}</content>
               ),
-              "Updated"
+              fn:concat("Updated document with ID: ", $extractedDocId)
             )
-            else "Not found"
+            else "Document not found"
         """)
-        .queryParam("docId", "${docId}")
+        .queryParam("documentXml", "${savedDocument}")
         .queryParam("newContent", "Updated content")
         .build()
     )
