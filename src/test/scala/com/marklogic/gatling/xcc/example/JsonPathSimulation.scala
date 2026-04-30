@@ -88,8 +88,20 @@ class JsonPathSimulation extends Simulation {
     )
     .pause(200.milliseconds)
     
-    // Step 4: Pass ALL inputs as a single JSON string with #{} variable interpolation
-    // This demonstrates building a complete JSON payload with multiple interpolated values
+    // Step 4: Build JSON payload using Scala string interpolation, then pass to XQuery
+    // This works around the limitation that #{} doesn't work inside JSON strings
+    .exec(session => {
+      val orderId = session("orderId").as[String]
+      val customerId = session("customerId").as[String]
+      val amount = session("amount").as[String]
+      
+      // Build a complete JSON payload with Scala interpolation
+      val invoicePayload = s"""{"invoiceId":"INV-${orderId.replace("ORD-", "")}","orderId":"$orderId","customerId":"$customerId","amount":"$amount","status":"PROCESSING"}"""
+      
+      println(s"[DEBUG] Built JSON payload: $invoicePayload")
+      
+      session.set("invoicePayload", invoicePayload)
+    })
     .exec(
       xcc("Process Invoice with JSON Payload")
         .xquery("""
@@ -118,10 +130,7 @@ class JsonPathSimulation extends Simulation {
             => map:with("paymentMethod", "CREDIT_CARD")
           )
         """)
-        .queryParam(
-          "invoicePayload", 
-          """{"invoiceId":"INV-#{orderId}","orderId":"#{orderId}","customerId":"#{customerId}","amount":"#{amount}","status":"PROCESSING"}"""  // Single JSON string with multiple #{} interpolations
-        )
+        .queryParam("invoicePayload", "${invoicePayload}")
         .check(xccBodyNotEmpty)
         .check(xccSubstring("processedInvoiceId"))
         .check(xccSubstring("PENDING"))

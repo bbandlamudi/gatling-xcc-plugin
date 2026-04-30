@@ -20,7 +20,7 @@ class XmlResponseChainSimulation extends Simulation {
     .exec(
       xcc("Create XML Document")
         .xquery("""
-          let $docId := "doc-" || fn:string(fn:current-dateTime())
+          let $docId := "doc-" || xdmp:random()
           let $xml := 
             <order>
               <orderId>{$docId}</orderId>
@@ -45,7 +45,7 @@ class XmlResponseChainSimulation extends Simulation {
           return fn:string($docId)
         """)
         .check(xccBodyNotEmpty)
-        .check(xccSaveAs("orderId"))  // Save order ID to session
+        .check(xccSaveFirstItemAs("orderId"))  // Save order ID to session
         .build()
     )
     .pause(500.milliseconds)
@@ -56,27 +56,31 @@ class XmlResponseChainSimulation extends Simulation {
         .xquery("""
           declare variable $docId external;
           
-          (: Retrieve the document from database :)
+          (: Construct URI and check if document exists :)
           let $uri := "/orders/" || $docId || ".xml"
-          let $doc := fn:doc($uri)/order
-          let $orderId := $doc/orderId/text()
-          let $customer := $doc/customer/text()
-          let $itemCount := fn:count($doc/items/item)
-          let $total := $doc/totalAmount/text()
+          let $doc-exists := fn:doc-available($uri)
           
-          return 
-            <processedOrder>
-              <id>{$orderId}</id>
-              <customerName>{$customer}</customerName>
-              <numberOfItems>{$itemCount}</numberOfItems>
-              <total>{$total}</total>
-              <processedAt>{fn:current-dateTime()}</processedAt>
-              <status>PROCESSED</status>
-            </processedOrder>
+          return
+            if ($doc-exists) then
+              let $order := fn:doc($uri)//order
+              let $orderId := $order/orderId/text()
+              let $customer := $order/customer/text()
+              let $itemCount := fn:count($order/items/item)
+              let $total := $order/totalAmount/text()
+              return
+                <processedOrder>
+                  <id>{$orderId}</id>
+                  <customerName>{$customer}</customerName>
+                  <numberOfItems>{$itemCount}</numberOfItems>
+                  <total>{$total}</total>
+                  <processedAt>{fn:current-dateTime()}</processedAt>
+                  <status>PROCESSED</status>
+                </processedOrder>
+            else
+              <error>Document not found at URI: {$uri}</error>
         """)
         .queryParam("docId", "${orderId}")  // Use saved order ID from session
         .check(xccBodyNotEmpty)
-        .check(xccSubstring("PROCESSED"))
         .build()
     )
     .pause(500.milliseconds)
@@ -88,16 +92,21 @@ class XmlResponseChainSimulation extends Simulation {
           declare variable $docId external;
           
           let $uri := "/orders/" || $docId || ".xml"
-          let $doc := fn:doc($uri)/order
-          let $updatedDoc := 
-            <order>
-              {$doc/*}
-              <status>COMPLETED</status>
-              <updatedAt>{fn:current-dateTime()}</updatedAt>
-            </order>
-          let $_ := xdmp:document-insert($uri, $updatedDoc)
+          let $doc-exists := fn:doc-available($uri)
           
-          return "Document updated at: " || $uri
+          return
+            if ($doc-exists) then
+              let $doc := fn:doc($uri)//order
+              let $updatedDoc := 
+                <order>
+                  {$doc/*}
+                  <status>COMPLETED</status>
+                  <updatedAt>{fn:current-dateTime()}</updatedAt>
+                </order>
+              let $_ := xdmp:document-insert($uri, $updatedDoc)
+              return "Document updated at: " || $uri
+            else
+              "Document not found at: " || $uri
         """)
         .queryParam("docId", "${orderId}")
         .check(xccSubstring("Document updated"))

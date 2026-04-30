@@ -47,7 +47,7 @@ class AdvancedSimulation extends Simulation {
     )
     .pause(500.milliseconds)
     
-               // Read document and save first item to session
+    // Read document and save first item to session
     .exec(
       xcc("Read Document")
         .xquery("""
