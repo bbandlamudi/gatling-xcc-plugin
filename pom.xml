@@ -22,19 +22,7 @@
         <marklogic-xcc.version>11.3.0</marklogic-xcc.version>
     </properties>
 
-    <repositories>
-        <repository>
-            <id>central</id>
-            <url>https://nexus.sspr.mp.cmscloud.local/repository/central/</url>
-        </repository>
-    </repositories>
-
-    <pluginRepositories>
-        <pluginRepository>
-            <id>central</id>
-            <url>https://nexus.sspr.mp.cmscloud.local/repository/central/</url>
-        </pluginRepository>
-    </pluginRepositories>
+    <!-- Repository configuration is in ~/.m2/settings.xml -->
 
     <dependencies>
         <!-- Gatling -->
@@ -150,7 +138,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
-                    <skipTests>false</skipTests>
+                    <!-- Skip Surefire - ScalaTest plugin handles Scala tests -->
+                    <skipTests>true</skipTests>
                 </configuration>
             </plugin>
 
