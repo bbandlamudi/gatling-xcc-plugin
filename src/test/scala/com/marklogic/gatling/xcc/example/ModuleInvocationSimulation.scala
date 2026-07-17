@@ -11,6 +11,18 @@ class ModuleInvocationSimulation extends Simulation {
 
   val protocol = xccProtocol("xcc://admin:admin@localhost:8000/Documents").build()
 
+  /**
+   * Helper method to create XML input document from a session variable value
+   * @param session The Gatling session
+   * @param valueKey The session key containing the value to be wrapped in XML
+   * @return Updated session with xmlInput variable set
+   */
+  def createXmlInput(session: Session, valueKey: String): Session = {
+    val value = session(valueKey).as[String]
+    val xmlDoc = s"<doc><value>$value</value></doc>"
+    session.set("xmlInput", xmlDoc)
+  }
+
   val scn = scenario("Module Invocation Test")
     .exec(
       xcc("Invoke Search Module")
@@ -30,6 +42,60 @@ class ModuleInvocationSimulation extends Simulation {
         .build()
     )
 
+  // Scenario demonstrating session variable usage
+  val scnWithSession = scenario("Module Invocation with Session Variables")
+    // Step 1: Store parameters in Gatling session using _.set() shorthand
+    .exec(
+      _.set("searchQuery", "test")
+      .set("pageSize", 5)
+    )
+    .exec(session => {
+          session.set("pageNumber", 2)
+      }
+    )
+    .pause(500.milliseconds)
+    // Step 2: Use session variables in module invocation
+    .exec(
+      xcc("Search with Session Params")
+        .invoke("/lib/search.xqy")
+        .queryParam("query", "${searchQuery}")
+        .queryParam("pageSize", "#{pageSize}")
+        .queryParam("pageNumber", "${pageNumber}")
+        .option("timeout", "30000")
+        .build()
+    )
+    .pause(1.second)
+    // Step 3: Update session variables dynamically
+    .exec(session => {
+      val newPageNumber = session("pageNumber").as[Int] + 1
+      session.set("pageNumber", newPageNumber)
+    })
+    // Step 4: Use updated session variables
+    .exec(
+      xcc("Search Next Page")
+        .invoke("/lib/search.xqy")
+        .queryParam("query", "#{searchQuery}")
+        .queryParam("pageSize", "${pageSize}")
+        .queryParam("pageNumber", "${pageNumber}")
+        .build()
+    )
+    .pause(1.second)
+    // Step 5: Store test value in session variable using _.set() shorthand
+    .exec(_.set("testValue", "session-test"))
+    // Step 6: Use helper method to create XML input from session variable
+    .exec(session => {
+      createXmlInput(session, "testValue")
+    })
+    // Step 7: Set output format and transform the XML using _.set() shorthand
+    .exec(_.set("outputFormat", "json"))
+    .exec(
+      xcc("Transform with Session Data")
+        .invoke("/lib/transform.xqy")
+        .queryParam("inputDoc", "${xmlInput}")
+        .queryParam("format", "#{outputFormat}")
+        .build()
+    )
+
   /*setUp(
     scn.inject(
       incrementUsersPerSec(5)
@@ -43,8 +109,11 @@ class ModuleInvocationSimulation extends Simulation {
      global.responseTime.mean.lt(2000),
      forAll.failedRequests.percent.lte(1)
    )*/
+  
+  // Run both scenarios
   setUp(
-    scn.inject(atOnceUsers(1))
+    scn.inject(atOnceUsers(1)),
+    scnWithSession.inject(atOnceUsers(1))
   ).protocols(protocol)
 }
 
