@@ -175,7 +175,7 @@ class XccAction(
         valueExpr(session) match {
           case Success(value) =>
             logger.debug(s"Query parameter: $name = $value")
-            logger.debug(s"Session keys available: ${session.attributes.keys.mkString(", ")}")
+           // logger.debug(s"Session keys available: ${session.attributes.keys.mkString(", ")}")
             val xdmVariable = createXdmVariable(name, value)
             request.setVariable(xdmVariable)
           case Failure(error) =>

@@ -7,12 +7,13 @@ import scala.concurrent.duration._
 
 /**
  * Simulation demonstrating the various check capabilities
+ * Including both success and failure cases
  */
 class ChecksSimulation extends Simulation {
 
   val protocol = xccProtocol("xcc://admin:admin@localhost:8000/Documents").build()
 
-  val scn = scenario("XCC Checks Demo")
+  val scn = scenario("XCC Checks Demo - Success Cases")
     
     // Basic checks
     .exec(
@@ -134,9 +135,51 @@ class ChecksSimulation extends Simulation {
         )
         .build()
     )
+    .pause(500.milliseconds)
+    
+    // Test that whitespace-only is NOT considered empty (string is not empty)
+    .exec(
+      xcc("Whitespace Not Empty")
+        .xquery("' '")  // Returns single space
+        .check(xccBodyNotEmpty)  // Should PASS - space is not empty string
+        .build()
+    )
 
+  // Scenario demonstrating failure cases (these requests will fail as expected)
+  val failureScn = scenario("XCC Checks Demo - Expected Failures")
+    
+    // Test empty string - xccBodyNotEmpty should FAIL
+    .exec(
+      xcc("Empty String Check - Expected to Fail")
+        .xquery("''")  // Returns empty string
+        .check(xccBodyNotEmpty)  // Will FAIL with "Response body is empty"
+        .build()
+    )
+    .pause(500.milliseconds)
+    
+    // Test substring not found - should FAIL
+    .exec(
+      xcc("Substring Not Found - Expected to Fail")
+        .xquery("'Hello World'")
+        .check(xccSubstring("Goodbye"))  // Will FAIL
+        .build()
+    )
+    .pause(500.milliseconds)
+    
+    // Test regex not matching - should FAIL
+    .exec(
+      xcc("Regex No Match - Expected to Fail")
+        .xquery("'abc123'")
+        .check(xccRegex("^\\d+$"))  // Expects only digits, will FAIL
+        .build()
+    )
+
+  // Run only success scenario by default
+  // To run failure scenario, uncomment the second line below
   setUp(
     scn.inject(atOnceUsers(1))
+    // Uncomment to also run failure cases (will show failed requests):
+    // failureScn.inject(atOnceUsers(1))
   ).protocols(protocol)
 }
 
