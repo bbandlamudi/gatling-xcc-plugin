@@ -99,7 +99,7 @@ class XccAction(
             
           case None =>
             logger.debug(s"Request '${attributes.requestName}' succeeded in ${duration}ms")
-            logger.trace(s"Response: $responseStr")
+            logger.debug(s"Response: $responseStr")
             statsEngine.logResponse(
               session.scenario,
               session.groups,
@@ -108,7 +108,7 @@ class XccAction(
               endTime,
               OK,
               None,
-              Some(responseStr)
+              None //Some(responseStr) avoid printing resonse
             )
             next ! finalSession.markAsSucceeded
             Success(())
