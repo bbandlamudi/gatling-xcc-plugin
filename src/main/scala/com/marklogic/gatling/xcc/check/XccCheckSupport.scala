@@ -8,12 +8,13 @@ import com.marklogic.xcc.ResultSequence
  */
 trait XccCheckSupport {
   
-  // Convenience checks
+    // Convenience checks
   val xccSubstring: String => XccCheck = XccCheckBuilders.substring
   val xccRegex: String => XccCheck = XccCheckBuilders.regex
-    val xccBodyNotEmpty: XccCheck = XccCheckBuilders.bodyNotEmpty
+  val xccBodyNotEmpty: XccCheck = XccCheckBuilders.bodyNotEmpty
   val xccBodyEquals: String => XccCheck = XccCheckBuilders.bodyEquals
   val xccSaveAs: String => XccCheck = XccCheckBuilders.saveAs
+  val xccSaveItemAs: (Int, String) => XccCheck = XccCheckBuilders.saveItemAs
   val xccSaveFirstItemAs: String => XccCheck = XccCheckBuilders.saveFirstItemAs
   val xccXPath: String => XccCheck = XccCheckBuilders.xpath
   val xccJsonPath: String => XccCheck = XccCheckBuilders.jsonPath

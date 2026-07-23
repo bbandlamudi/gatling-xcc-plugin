@@ -181,6 +181,8 @@
                     - com.marklogic.gatling.xcc.example.MapResultSimulation
                     - com.marklogic.gatling.xcc.example.GenerateTestDataSimulation
                     - com.marklogic.gatling.xcc.example.FeederWithSessionSimulation
+                    - com.marklogic.gatling.xcc.example.SaveItemsByIndexSimulation
+                    - com.marklogic.gatling.xcc.example.MultipleDocumentsSimulation
                     
                     Run with: mvn gatling:test -Dgatling.simulationClass=<full.class.name>
                     Or without parameter to run all simulations

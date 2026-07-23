@@ -11,7 +11,9 @@ case class XccResponse(
   body: String,
   requestName: String,
   startTimestamp: Long,
-  endTimestamp: Long
+  endTimestamp: Long,
+  firstItem: Option[String] = None,  // First item from ResultSequence
+  items: List[String] = List.empty    // All items from ResultSequence
 )
 
 /**

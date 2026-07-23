@@ -38,10 +38,12 @@ class XccAction(
     } yield resultSequence
     
     result match {
-      case Success(resultSequence) =>
+                        case Success(resultSequence) =>
         val endTime = clock.nowMillis
         val duration = endTime - startTime
-        val responseStr = resultSequenceToString(resultSequence)
+        
+        // Extract all items, first item, and full body in one pass
+        val (firstItem, responseStr, items) = extractItems(resultSequence)
         
         // Apply result mapper if provided
         val mappedResult = attributes.resultMapper match {
@@ -64,12 +66,14 @@ class XccAction(
         
         val (sessionAfterLegacyChecks, legacyCheckError) = legacyCheckResult
         
-        // Apply XccResponse checks if provided
+                        // Apply XccResponse checks if provided
         val xccResponse = XccResponse(
           body = responseStr,
           requestName = attributes.requestName,
           startTimestamp = startTime,
-          endTimestamp = endTime
+          endTimestamp = endTime,
+          firstItem = firstItem,
+          items = items
         )
         
         val xccCheckResult = if (attributes.xccChecks.nonEmpty) {
@@ -221,17 +225,34 @@ class XccAction(
     }
   }
   
-  private def resultSequenceToString(resultSequence: ResultSequence): String = {
+      private def extractItems(resultSequence: ResultSequence): (Option[String], String, List[String]) = {
     Try {
       val results = new StringBuilder
+      val itemsList = scala.collection.mutable.ListBuffer[String]()
+      var firstItem: Option[String] = None
+      var isFirst = true
+      
       while (resultSequence.hasNext) {
         val item = resultSequence.next()
-        results.append(item.asString()).append("\n")
+        val itemStr = item.asString()
+        
+        // Save to items list
+        itemsList += itemStr
+        
+        // Save first item
+        if (isFirst) {
+          firstItem = Some(itemStr)
+          isFirst = false
+        }
+        
+        // Append to full response body
+        results.append(itemStr).append("\n")
       }
-      results.toString()
+      
+      (firstItem, results.toString(), itemsList.toList)
     } match {
-      case TrySuccess(str) => str
-      case TryFailure(_) => "[Unable to convert result to string]"
+      case TrySuccess(result) => result
+      case TryFailure(_) => (None, "[Unable to convert result to string]", List.empty)
     }
   }
 

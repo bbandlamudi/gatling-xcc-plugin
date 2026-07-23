@@ -49,25 +49,30 @@ object XccCheckBuilders {
     s"Response body does not equal expected value"
   )
   
-    // Save response to session - returns the extracted value with session key
+      // Save response to session - returns the extracted value with session key
   def saveAs(key: String): XccCheck = new BaseXccCheck {
     override def check(response: XccResponse, session: Session, preparedCache: Check.PreparedCache): Validation[CheckResult] = {
-      // Return the body value with session key - Gatling framework will save it
+      // Return the full body value with session key - Gatling framework will save it
       Success(CheckResult(Some(response.body), Some(key)))
     }
   }
   
-  // Check if at least one item exists and save only the first item to session
-  def saveFirstItemAs(key: String): XccCheck = new BaseXccCheck {
+  // Save specific item at index to session (0-based index)
+  def saveItemAs(index: Int, key: String): XccCheck = new BaseXccCheck {
     override def check(response: XccResponse, session: Session, preparedCache: Check.PreparedCache): Validation[CheckResult] = {
-      val items = response.body.split("\n").map(_.trim).filter(_.nonEmpty)
-      if (items.isEmpty) {
+      if (response.items.isEmpty) {
         Failure("Result set is empty, no items to save")
+      } else if (index < 0 || index >= response.items.length) {
+        Failure(s"Index $index out of bounds. Result set contains ${response.items.length} item(s)")
       } else {
-        Success(CheckResult(Some(items.head), Some(key)))
+        val item = response.items(index)
+        Success(CheckResult(Some(item), Some(key)))
       }
     }
   }
+  
+  // Check if at least one item exists and save only the first item to session
+  def saveFirstItemAs(key: String): XccCheck = saveItemAs(0, key)
   
   // XPath check for XML responses
   def xpath(expression: String): XccCheck = new BaseXccCheck {

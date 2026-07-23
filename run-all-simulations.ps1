@@ -11,6 +11,7 @@ $simulations = @(
     "MultipleDocumentsSimulation",
     "ProtocolConfigurationSimulation",
     "QuickTestSimulation",
+    "SaveItemsByIndexSimulation",
     "XPathExtractAndReuseSimulation",
     "XccsSecureSimulation",
     "XmlChainSimplifiedSimulation",
