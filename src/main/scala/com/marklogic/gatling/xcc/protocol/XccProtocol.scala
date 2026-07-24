@@ -109,16 +109,16 @@ case class XccProtocolBuilder(
       // Set authentication preemptive for XCCS/basic by default
       // Can be disabled by adding authenticationPreemptive=false to the query string
       if (uriObj.getQuery == null || !uriObj.getQuery.contains("authenticationPreemptive=false")) {
-        logger.debug("Setting authentication preemptive for XCCS connection")
+        logger.trace("Setting authentication preemptive for XCCS connection")
         cs.setAuthenticationPreemptive(true)
       }
       cs
     } else {
-      logger.debug(s"Creating standard XCC ContentSource for ${sanitizeUri(connectionUri)}")
+      logger.info(s"Creating standard XCC ContentSource for ${sanitizeUri(connectionUri)}")
       ContentSourceFactory.newContentSource(uriObj)
     }
     
-    logger.info(s"Successfully created ContentSource for ${sanitizeUri(connectionUri)}")
+    logger.debug(s"Successfully created ContentSource for ${sanitizeUri(connectionUri)}")
     XccProtocol(connectionUri, contentSource)
   }
   
