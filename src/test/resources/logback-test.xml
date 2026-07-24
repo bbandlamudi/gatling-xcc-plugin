@@ -22,7 +22,7 @@
     <logger name="io.gatling.http.engine.response" level="INFO" />
     
     <!-- XCC Plugin logging - set to DEBUG for detailed troubleshooting -->
-    <logger name="com.marklogic.gatling.xcc" level="DEBUG" />
+    <logger name="com.marklogic.gatling.xcc" level="TRACE" />
     
     <!-- MarkLogic XCC library logging -->
     <logger name="com.marklogic.xcc" level="DEBUG" />

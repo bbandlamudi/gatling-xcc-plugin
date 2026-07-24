@@ -38,7 +38,7 @@ class XccAction(
     } yield resultSequence
     
     result match {
-                        case Success(resultSequence) =>
+      case Success(resultSequence) =>
         val endTime = clock.nowMillis
         val duration = endTime - startTime
         
@@ -101,9 +101,9 @@ class XccAction(
             next ! finalSession.markAsFailed
             Failure(error.message)
             
-          case None =>
+                    case None =>
             logger.debug(s"Request '${attributes.requestName}' succeeded in ${duration}ms")
-            logger.debug(s"Response: $responseStr")
+            logger.trace(s"Response: $responseStr")
             statsEngine.logResponse(
               session.scenario,
               session.groups,
@@ -175,10 +175,10 @@ class XccAction(
           throw new IllegalArgumentException("Must specify exactly one of: xquery, javascript, or module")
       }
       
-            attributes.variables.foreach { case (name, valueExpr) =>
+      attributes.variables.foreach { case (name, valueExpr) =>
         valueExpr(session) match {
           case Success(value) =>
-            logger.debug(s"Query parameter: $name = $value")
+            logger.trace(s"Query parameter: $name = $value")
            // logger.debug(s"Session keys available: ${session.attributes.keys.mkString(", ")}")
             val xdmVariable = createXdmVariable(name, value)
             request.setVariable(xdmVariable)
@@ -209,23 +209,23 @@ class XccAction(
   }
 
   private def executeRequest(request: Request): Validation[ResultSequence] = {
-    logger.debug(s"Executing request to MarkLogic")
+    logger.debug(s"Executing request '${attributes.requestName}' to MarkLogic")
     Try {
       val resultSequence: ResultSequence = request.getSession.submitRequest(request)
       val itemCount = resultSequence.size()
-      logger.debug(s"Received $itemCount result items")
+      logger.debug(s"Request '${attributes.requestName}' received $itemCount result items")
       resultSequence
     } match {
       case TrySuccess(result) => 
-        logger.debug(s"Request executed successfully")
+        logger.debug(s"Request '${attributes.requestName}' executed successfully")
         Success(result)
       case TryFailure(ex) => 
-        logger.error(s"Request execution failed: ${ex.getMessage}", ex)
+        logger.error(s"Request '${attributes.requestName}' execution failed: ${ex.getMessage}", ex)
         Failure(s"Request failed: ${ex.getMessage}")
     }
   }
   
-      private def extractItems(resultSequence: ResultSequence): (Option[String], String, List[String]) = {
+  private def extractItems(resultSequence: ResultSequence): (Option[String], String, List[String]) = {
     Try {
       val results = new StringBuilder
       val itemsList = scala.collection.mutable.ListBuffer[String]()
