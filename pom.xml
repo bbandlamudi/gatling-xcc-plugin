@@ -6,7 +6,7 @@
 
     <groupId>com.marklogic.gatling.xcc</groupId>
     <artifactId>gatling-xcc-plugin</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>Gatling XCC Plugin</name>
@@ -22,7 +22,33 @@
         <marklogic-xcc.version>11.3.0</marklogic-xcc.version>
     </properties>
 
-    <!-- Repository configuration is in ~/.m2/settings.xml -->
+    <!-- 
+    Repository configuration (commented out - configure in ~/.m2/settings.xml instead)
+    
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Maven Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+    
+    <pluginRepositories>
+        <pluginRepository>
+            <id>central</id>
+            <name>Maven Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+    -->
 
     <dependencies>
         <!-- Gatling -->
