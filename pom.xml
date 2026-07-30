@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.marklogic.gatling.xcc</groupId>
+    <artifactId>gatling-xcc-plugin</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>Gatling XCC Plugin</name>
+    <description>Gatling plugin for MarkLogic XCC protocol load testing</description>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <gatling.version>3.15.0</gatling.version>
+        <scala.version>2.13.17</scala.version>
+        <scala.binary.version>2.13</scala.binary.version>
+        <marklogic-xcc.version>11.3.0</marklogic-xcc.version>
+    </properties>
+
+    <!-- 
+    Repository configuration (commented out - configure in ~/.m2/settings.xml instead)
+    
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Maven Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+    
+    <pluginRepositories>
+        <pluginRepository>
+            <id>central</id>
+            <name>Maven Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+    -->
+
+    <dependencies>
+        <!-- Gatling -->
+        <dependency>
+            <groupId>io.gatling</groupId>
+            <artifactId>gatling-core</artifactId>
+            <version>${gatling.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Scala -->
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>${scala.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        
+        <!-- Scala XML for XPath support -->
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-xml_${scala.binary.version}</artifactId>
+            <version>2.1.0</version>
+        </dependency>
+
+        <!-- MarkLogic XCC -->
+        <dependency>
+            <groupId>com.marklogic</groupId>
+            <artifactId>marklogic-xcc</artifactId>
+            <version>${marklogic-xcc.version}</version>
+        </dependency>
+
+        <!-- Logging -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.4.14</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.typesafe.scala-logging</groupId>
+            <artifactId>scala-logging_${scala.binary.version}</artifactId>
+            <version>3.9.5</version>
+        </dependency>
+
+        <!-- Test Dependencies -->
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_${scala.binary.version}</artifactId>
+            <version>3.2.19</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.gatling</groupId>
+            <artifactId>gatling-test-framework</artifactId>
+            <version>${gatling.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.gatling.highcharts</groupId>
+            <artifactId>gatling-charts-highcharts</artifactId>
+            <version>${gatling.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>src/main/scala</sourceDirectory>
+        <testSourceDirectory>src/test/scala</testSourceDirectory>
+
+        <plugins>
+            <!-- Scala Maven Plugin -->
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>4.9.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <scalaVersion>${scala.version}</scalaVersion>
+                    <args>
+                        <arg>-deprecation</arg>
+                        <arg>-feature</arg>
+                        <arg>-unchecked</arg>
+                        <arg>-language:implicitConversions</arg>
+                        <arg>-language:postfixOps</arg>
+                    </args>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Compiler Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Surefire Plugin for Tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <!-- Skip Surefire - ScalaTest plugin handles Scala tests -->
+                    <skipTests>true</skipTests>
+                </configuration>
+            </plugin>
+
+            <!-- ScalaTest Maven Plugin -->
+            <plugin>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest-maven-plugin</artifactId>
+                <version>2.2.0</version>
+                <executions>
+                    <execution>
+                        <id>test</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Gatling Maven Plugin -->
+            <plugin>
+                <groupId>io.gatling</groupId>
+                <artifactId>gatling-maven-plugin</artifactId>
+                <version>4.9.6</version>
+                <configuration>
+                    <!-- 
+                    Available simulations:
+                    - com.marklogic.gatling.xcc.example.QuickTestSimulation (default)
+                    - com.marklogic.gatling.xcc.example.BasicSimulation
+                    - com.marklogic.gatling.xcc.example.AdvancedSimulation
+                    - com.marklogic.gatling.xcc.example.JavaScriptSimulation
+                    - com.marklogic.gatling.xcc.example.ModuleInvocationSimulation
+                    - com.marklogic.gatling.xcc.example.ChecksSimulation
+                    - com.marklogic.gatling.xcc.example.ProtocolConfigurationSimulation
+                    - com.marklogic.gatling.xcc.example.XccsSecureSimulation
+                    - com.marklogic.gatling.xcc.example.XmlResponseChainSimulation
+                    - com.marklogic.gatling.xcc.example.XPathExtractAndReuseSimulation
+                    - com.marklogic.gatling.xcc.example.XmlChainSimplifiedSimulation
+                    - com.marklogic.gatling.xcc.example.JsonPathSimulation
+                    - com.marklogic.gatling.xcc.example.MapResultSimulation
+                    - com.marklogic.gatling.xcc.example.GenerateTestDataSimulation
+                    - com.marklogic.gatling.xcc.example.FeederWithSessionSimulation
+                    - com.marklogic.gatling.xcc.example.SaveItemsByIndexSimulation
+                    - com.marklogic.gatling.xcc.example.MultipleDocumentsSimulation
+                    
+                    Run with: mvn gatling:test -Dgatling.simulationClass=<full.class.name>
+                    Or without parameter to run all simulations
+                    -->
+                    <simulationClass>${gatling.simulationClass}</simulationClass>
+                    <jvmArgs>
+                        <jvmArg>--add-opens</jvmArg>
+                        <jvmArg>java.base/java.lang=ALL-UNNAMED</jvmArg>
+                        <jvmArg>--add-opens</jvmArg>
+                        <jvmArg>java.base/java.util=ALL-UNNAMED</jvmArg>
+                    </jvmArgs>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

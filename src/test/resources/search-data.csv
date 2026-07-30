@@ -1,0 +1,6 @@
+searchTerm,docType,maxResults
+employee,profile,10
+customer,account,20
+product,catalog,15
+order,transaction,25
+invoice,billing,30

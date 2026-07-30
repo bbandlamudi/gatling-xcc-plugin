@@ -1,0 +1,85 @@
+/*
+ * Copyright (c) 2026 Bhagat Bandlamudi
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+package com.marklogic.gatling.xcc
+
+import io.gatling.core.Predef._
+import com.marklogic.gatling.xcc.Predef._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+class XccPluginTest extends AnyFlatSpec with Matchers {
+
+  "XccProtocolBuilder" should "build a protocol with basic configuration" in {
+
+    val protocol = xccProtocol("xcc://localhost:8000")
+      .username("admin")
+      .password("admin")
+      .database("Documents")
+      .build()
+    
+    protocol should not be null
+    protocol.uri should be("xcc://admin:admin@localhost:8000/Documents")
+  }
+
+  "XccRequestBuilder" should "build a request with XQuery" in {
+    val requestBuilder = xcc("Test Query")
+      .xquery("xdmp:database-name(xdmp:database())")
+    
+    requestBuilder should not be null
+    requestBuilder.requestName should be("Test Query")
+  }
+
+  it should "build a request with variables" in {
+    val requestBuilder = xcc("Parameterized Query")
+      .xquery("declare variable $name external; $name")
+      .queryParam("name", "John")
+      .queryParam("age", 30)
+    
+    requestBuilder.variables should have size 2
+    requestBuilder.variables.keys should contain allOf ("name", "age")
+  }
+
+  it should "build a request with JavaScript" in {
+    val requestBuilder = xcc("JS Query")
+      .javascript("cts.doc('/test.json')")
+    
+    requestBuilder.javascript should not be None
+  }
+
+  it should "build a request with module invocation" in {
+    val requestBuilder = xcc("Module Invocation")
+      .invoke("/modules/test.xqy")
+      .queryParam("param", "value")
+    
+    requestBuilder.module should not be None
+  }
+
+  it should "build a request with options" in {
+    val requestBuilder = xcc("Query with Options")
+      .xquery("xdmp:sleep(1000)")
+      .option("timeout", "5000")
+      .option("cacheable", "true")
+    
+    requestBuilder.options should have size 2
+  }
+}
+

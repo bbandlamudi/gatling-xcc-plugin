@@ -1,0 +1,15 @@
+.idea/
+.vscode/
+*.iml
+target/
+*.class
+*.log
+.DS_Store
+.classpath
+.project
+.settings/
+dependency-reduced-pom.xml
+.metals/
+.bloop/
+project/target/
+project/project/
