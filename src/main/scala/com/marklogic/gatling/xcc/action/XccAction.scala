@@ -161,7 +161,7 @@ class XccAction(
   private def buildRequest(session: Session): Validation[Request] = {
     logger.debug(s"Building XCC request: ${attributes.requestName}")
     Try {
-      val xccSession: XccSession = xccComponents.protocol.contentSource.newSession()
+      val xccSession: XccSession = xccComponents.protocol.getContentSource().newSession()
       
       val request: Request = (attributes.xquery, attributes.javascript, attributes.module) match {
         case (Some(xqueryExpr), None, None) =>
