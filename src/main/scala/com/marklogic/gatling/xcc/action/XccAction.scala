@@ -52,109 +52,124 @@ class XccAction(
   override def sendRequest(session: Session): Validation[Unit] = {
     logger.info(s"Executing XCC request: ${attributes.requestName}")
     val startTime = clock.nowMillis
+    var xccSession: XccSession = null
+    var resultSequence: ResultSequence = null
     
-    val result = for {
-      request <- buildRequest(session)
-      resultSequence <- executeRequest(request)
-    } yield resultSequence
-    
-    result match {
-      case Success(resultSequence) =>
-        val endTime = clock.nowMillis
-        val duration = endTime - startTime
-        
-        // Extract all items, first item, and full body in one pass
-        val (firstItem, responseStr, items) = extractItems(resultSequence)
-        
-        // Apply result mapper if provided
-        val mappedResult = attributes.resultMapper match {
-          case Some(mapper) => 
-            Try(mapper(resultSequence)) match {
-              case TrySuccess(mapped) => mapped
-              case TryFailure(ex) => 
-                logger.error(s"Result mapping failed: ${ex.getMessage}")
-                resultSequence
-            }
-          case None => resultSequence
-        }
-        
-        // Apply legacy ResultSequence checks if provided
-        val legacyCheckResult = if (attributes.checks.nonEmpty) {
-          io.gatling.core.check.Check.check(resultSequence, session, attributes.checks, null)
-        } else {
-          (session, None)
-        }
-        
-        val (sessionAfterLegacyChecks, legacyCheckError) = legacyCheckResult
-        
-                        // Apply XccResponse checks if provided
-        val xccResponse = XccResponse(
-          body = responseStr,
-          requestName = attributes.requestName,
-          startTimestamp = startTime,
-          endTimestamp = endTime,
-          firstItem = firstItem,
-          items = items
-        )
-        
-        val xccCheckResult = if (attributes.xccChecks.nonEmpty) {
-          io.gatling.core.check.Check.check(xccResponse, sessionAfterLegacyChecks, attributes.xccChecks, null)
-        } else {
-          (sessionAfterLegacyChecks, None)
-        }
-        
-        val (finalSession, xccCheckError) = xccCheckResult
-        val checkError = legacyCheckError.orElse(xccCheckError)
-        
-        checkError match {
-          case Some(error) =>
-            logger.warn(s"Check failed for '${attributes.requestName}': $error")
-            statsEngine.logResponse(
-              session.scenario,
-              session.groups,
-              attributes.requestName,
-              startTime,
-              endTime,
-              KO,
-              None,
-              Some(error.message)
-            )
-            next ! finalSession.markAsFailed
-            Failure(error.message)
-            
-                    case None =>
-            logger.debug(s"Request '${attributes.requestName}' succeeded in ${duration}ms")
-            logger.trace(s"Response: $responseStr")
-            statsEngine.logResponse(
-              session.scenario,
-              session.groups,
-              attributes.requestName,
-              startTime,
-              endTime,
-              OK,
-              None,
-              None //Some(responseStr) avoid printing resonse
-            )
-            next ! finalSession.markAsSucceeded
-            Success(())
-        }
-        
-      case Failure(errorMessage) =>
-        val endTime = clock.nowMillis
-        val duration = endTime - startTime
-        logger.warn(s"Request '${attributes.requestName}' failed after ${duration}ms: $errorMessage")
-        statsEngine.logResponse(
-          session.scenario,
-          session.groups,
-          attributes.requestName,
-          startTime,
-          endTime,
-          KO,
-          None,
-          Some(errorMessage)
-        )
-        next ! session.markAsFailed
-        Failure(errorMessage)
+    try {
+      val result = for {
+        request <- buildRequest(session)
+        rs <- executeRequest(request)
+      } yield (request, rs)
+      
+      result match {
+        case Success((request, rs)) =>
+          xccSession = request.getSession
+          resultSequence = rs
+          val endTime = clock.nowMillis
+          val duration = endTime - startTime
+          
+          // Extract all items, first item, and full body in one pass
+          val (firstItem, responseStr, items) = extractItems(resultSequence)
+          
+          // Apply result mapper if provided
+          val mappedResult = attributes.resultMapper match {
+            case Some(mapper) => 
+              Try(mapper(resultSequence)) match {
+                case TrySuccess(mapped) => mapped
+                case TryFailure(ex) => 
+                  logger.error(s"Result mapping failed: ${ex.getMessage}")
+                  resultSequence
+              }
+            case None => resultSequence
+          }
+          
+          // Apply legacy ResultSequence checks if provided
+          val legacyCheckResult = if (attributes.checks.nonEmpty) {
+            io.gatling.core.check.Check.check(resultSequence, session, attributes.checks, null)
+          } else {
+            (session, None)
+          }
+          
+          val (sessionAfterLegacyChecks, legacyCheckError) = legacyCheckResult
+          
+          // Apply XccResponse checks if provided
+          val xccResponse = XccResponse(
+            body = responseStr,
+            requestName = attributes.requestName,
+            startTimestamp = startTime,
+            endTimestamp = endTime,
+            firstItem = firstItem,
+            items = items
+          )
+          
+          val xccCheckResult = if (attributes.xccChecks.nonEmpty) {
+            io.gatling.core.check.Check.check(xccResponse, sessionAfterLegacyChecks, attributes.xccChecks, null)
+          } else {
+            (sessionAfterLegacyChecks, None)
+          }
+          
+          val (finalSession, xccCheckError) = xccCheckResult
+          val checkError = legacyCheckError.orElse(xccCheckError)
+          
+          checkError match {
+            case Some(error) =>
+              logger.warn(s"Check failed for '${attributes.requestName}': $error")
+              statsEngine.logResponse(
+                session.scenario,
+                session.groups,
+                attributes.requestName,
+                startTime,
+                endTime,
+                KO,
+                None,
+                Some(error.message)
+              )
+              next ! finalSession.markAsFailed
+              Failure(error.message)
+              
+            case None =>
+              logger.debug(s"Request '${attributes.requestName}' succeeded in ${duration}ms")
+              logger.trace(s"Response: $responseStr")
+              statsEngine.logResponse(
+                session.scenario,
+                session.groups,
+                attributes.requestName,
+                startTime,
+                endTime,
+                OK,
+                None,
+                None //Some(responseStr) avoid printing resonse
+              )
+              next ! finalSession.markAsSucceeded
+              Success(())
+          }
+          
+        case Failure(errorMessage) =>
+          val endTime = clock.nowMillis
+          val duration = endTime - startTime
+          logger.warn(s"Request '${attributes.requestName}' failed after ${duration}ms: $errorMessage")
+          statsEngine.logResponse(
+            session.scenario,
+            session.groups,
+            attributes.requestName,
+            startTime,
+            endTime,
+            KO,
+            None,
+            Some(errorMessage)
+          )
+          next ! session.markAsFailed
+          Failure(errorMessage)
+      }
+    } finally {
+      if (resultSequence != null) {
+        resultSequence.close()
+        logger.trace(s"Closed ResultSequence for '${attributes.requestName}'")
+      }
+      if (xccSession != null) {
+        xccSession.close()
+        logger.trace(s"Closed XCC Session for '${attributes.requestName}'")
+      }
     }
   }
 
