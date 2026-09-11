@@ -168,7 +168,7 @@ case class XccProtocolBuilder(
       logger.info(s"Created cached ContentSource for ${sanitizeUri(connectionUri)}")
       Some(cs)
     } else {
-      logger.info("ContentSource caching disabled")
+      logger.info(s"ContentSource caching disabled for ${sanitizeUri(connectionUri)}. A new instance is created for each call.")
       None
     }
     
