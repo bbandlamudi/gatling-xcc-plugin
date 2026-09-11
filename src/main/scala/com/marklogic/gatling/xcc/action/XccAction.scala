@@ -257,7 +257,7 @@ class XccAction(
         Success(result)
       case TryFailure(ex) => 
         logger.error(s"Request '${attributes.requestName}' execution failed: ${ex.getMessage}")
-        logger.debug(s"Exception:", ex)
+        logger.info(s"Exception:", ex)
         Failure(s"Request failed: ${ex.getMessage}")
     }
   }
