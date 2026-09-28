@@ -24,8 +24,8 @@ package com.marklogic.gatling.xcc.action
 import io.gatling.commons.stats.{KO, OK}
 import io.gatling.commons.util.Clock
 import io.gatling.commons.validation.{Failure, Success, Validation}
-import io.gatling.core.action.{Action, RequestAction}
-import io.gatling.core.session.{Expression, Session}
+import io.gatling.core.action.{Action, ExitableAction}
+import io.gatling.core.session.Session
 import io.gatling.core.stats.StatsEngine
 import io.gatling.core.structure.ScenarioContext
 import com.marklogic.gatling.xcc.protocol.XccComponents
@@ -35,133 +35,163 @@ import com.marklogic.xcc.{Request, RequestOptions, ResultSequence, Session => Xc
 import com.marklogic.xcc.types.{XdmValue, XdmVariable, XName}
 
 import scala.util.{Try, Success => TrySuccess, Failure => TryFailure}
+import scala.util.control.NonFatal
 
 class XccAction(
   attributes: XccAttributes,
   xccComponents: XccComponents,
   ctx: ScenarioContext,
   val next: Action
-) extends RequestAction {
+) extends ExitableAction {
 
   override val name: String = attributes.requestName
   override val statsEngine: StatsEngine = ctx.coreComponents.statsEngine
   override val clock: Clock = ctx.coreComponents.clock
 
-  override def requestName: Expression[String] = _ => Success(attributes.requestName)
+  // Run the blocking XCC/network I/O on a dedicated executor (see XccProtocol.newComponents),
+  // never on Gatling's shared core dispatcher threads.
+  override def execute(session: Session): Unit =
+    xccComponents.executorService.execute(() => {
+      try {
+        processRequest(session)
+        ()
+      } catch {
+        case NonFatal(ex) =>
+          logger.error(s"Unhandled error executing '${attributes.requestName}'", ex)
+          val now = clock.nowMillis
+          statsEngine.logResponse(session.scenario, session.groups, attributes.requestName, now, now, KO, None, Some(ex.getMessage))
+          next ! session.markAsFailed
+      }
+    })
 
-  override def sendRequest(session: Session): Validation[Unit] = {
+  private def processRequest(session: Session): Validation[Unit] = {
     logger.info(s"Executing XCC request: ${attributes.requestName}")
     val startTime = clock.nowMillis
+    var xccSession: XccSession = null
+    var resultSequence: ResultSequence = null
     
-    val result = for {
-      request <- buildRequest(session)
-      resultSequence <- executeRequest(request)
-    } yield resultSequence
-    
-    result match {
-      case Success(resultSequence) =>
-        val endTime = clock.nowMillis
-        val duration = endTime - startTime
-        
-        // Extract all items, first item, and full body in one pass
-        val (firstItem, responseStr, items) = extractItems(resultSequence)
-        
-        // Apply result mapper if provided
-        val mappedResult = attributes.resultMapper match {
-          case Some(mapper) => 
-            Try(mapper(resultSequence)) match {
-              case TrySuccess(mapped) => mapped
-              case TryFailure(ex) => 
-                logger.error(s"Result mapping failed: ${ex.getMessage}")
-                resultSequence
-            }
-          case None => resultSequence
-        }
-        
-        // Apply legacy ResultSequence checks if provided
-        val legacyCheckResult = if (attributes.checks.nonEmpty) {
-          io.gatling.core.check.Check.check(resultSequence, session, attributes.checks, null)
-        } else {
-          (session, None)
-        }
-        
-        val (sessionAfterLegacyChecks, legacyCheckError) = legacyCheckResult
-        
-                        // Apply XccResponse checks if provided
-        val xccResponse = XccResponse(
-          body = responseStr,
-          requestName = attributes.requestName,
-          startTimestamp = startTime,
-          endTimestamp = endTime,
-          firstItem = firstItem,
-          items = items
-        )
-        
-        val xccCheckResult = if (attributes.xccChecks.nonEmpty) {
-          io.gatling.core.check.Check.check(xccResponse, sessionAfterLegacyChecks, attributes.xccChecks, null)
-        } else {
-          (sessionAfterLegacyChecks, None)
-        }
-        
-        val (finalSession, xccCheckError) = xccCheckResult
-        val checkError = legacyCheckError.orElse(xccCheckError)
-        
-        checkError match {
-          case Some(error) =>
-            logger.warn(s"Check failed for '${attributes.requestName}': $error")
-            statsEngine.logResponse(
-              session.scenario,
-              session.groups,
-              attributes.requestName,
-              startTime,
-              endTime,
-              KO,
-              None,
-              Some(error.message)
-            )
-            next ! finalSession.markAsFailed
-            Failure(error.message)
-            
-                    case None =>
-            logger.debug(s"Request '${attributes.requestName}' succeeded in ${duration}ms")
-            logger.trace(s"Response: $responseStr")
-            statsEngine.logResponse(
-              session.scenario,
-              session.groups,
-              attributes.requestName,
-              startTime,
-              endTime,
-              OK,
-              None,
-              None //Some(responseStr) avoid printing resonse
-            )
-            next ! finalSession.markAsSucceeded
-            Success(())
-        }
-        
-      case Failure(errorMessage) =>
-        val endTime = clock.nowMillis
-        val duration = endTime - startTime
-        logger.warn(s"Request '${attributes.requestName}' failed after ${duration}ms: $errorMessage")
-        statsEngine.logResponse(
-          session.scenario,
-          session.groups,
-          attributes.requestName,
-          startTime,
-          endTime,
-          KO,
-          None,
-          Some(errorMessage)
-        )
-        next ! session.markAsFailed
-        Failure(errorMessage)
+    try {
+      val result = for {
+        request <- buildRequest(session)
+        rs <- executeRequest(request)
+      } yield (request, rs)
+      
+      result match {
+        case Success((request, rs)) =>
+          xccSession = request.getSession
+          resultSequence = rs
+          val endTime = clock.nowMillis
+          val duration = endTime - startTime
+          
+          // Extract all items, first item, and full body in one pass
+          val (firstItem, responseStr, items) = extractItems(resultSequence)
+          
+          // Apply result mapper if provided
+          val mappedResult = attributes.resultMapper match {
+            case Some(mapper) => 
+              Try(mapper(resultSequence)) match {
+                case TrySuccess(mapped) => mapped
+                case TryFailure(ex) => 
+                  logger.error(s"Result mapping failed: ${ex.getMessage}")
+                  resultSequence
+              }
+            case None => resultSequence
+          }
+          
+          // Apply legacy ResultSequence checks if provided
+          val legacyCheckResult = if (attributes.checks.nonEmpty) {
+            io.gatling.core.check.Check.check(resultSequence, session, attributes.checks, null)
+          } else {
+            (session, None)
+          }
+          
+          val (sessionAfterLegacyChecks, legacyCheckError) = legacyCheckResult
+          
+          // Apply XccResponse checks if provided
+          val xccResponse = XccResponse(
+            body = responseStr,
+            requestName = attributes.requestName,
+            startTimestamp = startTime,
+            endTimestamp = endTime,
+            firstItem = firstItem,
+            items = items
+          )
+          
+          val xccCheckResult = if (attributes.xccChecks.nonEmpty) {
+            io.gatling.core.check.Check.check(xccResponse, sessionAfterLegacyChecks, attributes.xccChecks, null)
+          } else {
+            (sessionAfterLegacyChecks, None)
+          }
+          
+          val (finalSession, xccCheckError) = xccCheckResult
+          val checkError = legacyCheckError.orElse(xccCheckError)
+          
+          checkError match {
+            case Some(error) =>
+              logger.warn(s"Check failed for '${attributes.requestName}': $error")
+              statsEngine.logResponse(
+                session.scenario,
+                session.groups,
+                attributes.requestName,
+                startTime,
+                endTime,
+                KO,
+                None,
+                Some(error.message)
+              )
+              next ! finalSession.markAsFailed
+              Failure(error.message)
+              
+            case None =>
+              logger.debug(s"Request '${attributes.requestName}' succeeded in ${duration}ms")
+              logger.trace(s"Response: $responseStr")
+              statsEngine.logResponse(
+                session.scenario,
+                session.groups,
+                attributes.requestName,
+                startTime,
+                endTime,
+                OK,
+                None,
+                None //Some(responseStr) avoid printing resonse
+              )
+              next ! finalSession.markAsSucceeded
+              Success(())
+          }
+          
+        case Failure(errorMessage) =>
+          val endTime = clock.nowMillis
+          val duration = endTime - startTime
+          logger.warn(s"Request '${attributes.requestName}' failed after ${duration}ms: $errorMessage")
+          statsEngine.logResponse(
+            session.scenario,
+            session.groups,
+            attributes.requestName,
+            startTime,
+            endTime,
+            KO,
+            None,
+            Some(errorMessage)
+          )
+          next ! session.markAsFailed
+          Failure(errorMessage)
+      }
+    } finally {
+      if (resultSequence != null) {
+        resultSequence.close()
+        logger.trace(s"Closed ResultSequence for '${attributes.requestName}'")
+      }
+      if (xccSession != null) {
+        xccSession.close()
+        logger.trace(s"Closed XCC Session for '${attributes.requestName}'")
+      }
     }
   }
 
   private def buildRequest(session: Session): Validation[Request] = {
     logger.debug(s"Building XCC request: ${attributes.requestName}")
     Try {
-      val xccSession: XccSession = xccComponents.protocol.contentSource.newSession()
+      val xccSession: XccSession = xccComponents.protocol.getContentSource().newSession()
       
       val request: Request = (attributes.xquery, attributes.javascript, attributes.module) match {
         case (Some(xqueryExpr), None, None) =>
@@ -241,7 +271,8 @@ class XccAction(
         logger.debug(s"Request '${attributes.requestName}' executed successfully")
         Success(result)
       case TryFailure(ex) => 
-        logger.error(s"Request '${attributes.requestName}' execution failed: ${ex.getMessage}", ex)
+        logger.error(s"Request '${attributes.requestName}' execution failed: ${ex.getMessage}")
+        logger.info(s"Exception:", ex)
         Failure(s"Request failed: ${ex.getMessage}")
     }
   }

@@ -29,17 +29,33 @@ import com.typesafe.scalalogging.LazyLogging
 import java.net.URI
 import javax.net.ssl.{SSLContext, X509TrustManager}
 import java.security.cert.X509Certificate
+import java.util.concurrent.{ExecutorService, Executors, ThreadFactory}
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * XCC Protocol configuration
  * 
  * @param uri The MarkLogic XCC connection URI
- * @param contentSource The XCC ContentSource
+ * @param contentSource The XCC ContentSource (Some if cached, None if created per request)
+ * @param cacheContentSource If true, reuse the ContentSource; if false, create new one per request
  */
 case class XccProtocol(
   uri: String,
-  contentSource: ContentSource
-) extends Protocol
+  contentSource: Option[ContentSource],
+  cacheContentSource: Boolean
+) extends Protocol with LazyLogging {
+  
+  /**
+   * Get ContentSource - returns cached one or creates new one based on cacheContentSource flag
+   */
+  def getContentSource(): ContentSource = {
+    contentSource.getOrElse {
+      logger.trace("Creating new ContentSource for this request")
+      val uriObj = new URI(uri)
+      XccProtocol.createContentSource(uriObj, logger)
+    }
+  }
+}
 
 object XccProtocol {
   val XccProtocolKey: ProtocolKey[XccProtocol, XccComponents] = new ProtocolKey[XccProtocol, XccComponents] {
@@ -49,8 +65,41 @@ object XccProtocol {
     override def defaultProtocolValue(configuration: GatlingConfiguration): XccProtocol = 
       throw new IllegalStateException("XCC protocol must be explicitly configured")
     
-    override def newComponents(coreComponents: CoreComponents): XccProtocol => XccComponents = {
-      xccProtocol => XccComponents(xccProtocol)
+        override def newComponents(coreComponents: CoreComponents): XccProtocol => XccComponents = {
+      // One dedicated executor per simulation run, shared across all XCC actions.
+      // Keeps blocking XCC/network I/O (session creation + submitRequest) off Gatling's
+      // core actor-dispatcher threads, which also service the async Netty HTTP protocols.
+      val executorService: ExecutorService = Executors.newCachedThreadPool(
+        new ThreadFactory() {
+          val identifierGenerator = new AtomicLong()
+          override def newThread(r: Runnable): Thread =
+            new Thread(r, "gatling-xcc-plugin-" + identifierGenerator.getAndIncrement())
+        }
+      )
+      coreComponents.actorSystem.registerOnTermination(() => executorService.shutdown())
+
+      xccProtocol => XccComponents(xccProtocol, executorService)
+    }
+  }
+  
+  /**
+   * Create a ContentSource from a URI
+   */
+  def createContentSource(uriObj: URI, logger: com.typesafe.scalalogging.Logger): ContentSource = {
+    if (uriObj.getScheme.equalsIgnoreCase("xccs")) {
+      logger.debug(s"Creating secure XCCS ContentSource")
+      val cs = ContentSourceFactory.newContentSource(uriObj, securityOptions)
+      
+      // Set authentication preemptive for XCCS/basic by default
+      // Can be disabled by adding authenticationPreemptive=false to the query string
+      if (uriObj.getQuery == null || !uriObj.getQuery.contains("authenticationPreemptive=false")) {
+        logger.trace("Setting authentication preemptive for XCCS connection")
+        cs.setAuthenticationPreemptive(true)
+      }
+      cs
+    } else {
+      logger.debug(s"Creating standard XCC ContentSource")
+      ContentSourceFactory.newContentSource(uriObj)
     }
   }
   
@@ -73,7 +122,7 @@ object XccProtocol {
 /**
  * Components holder for XCC protocol
  */
-case class XccComponents(protocol: XccProtocol) extends io.gatling.core.protocol.ProtocolComponents {
+case class XccComponents(protocol: XccProtocol, executorService: ExecutorService) extends io.gatling.core.protocol.ProtocolComponents {
   override def onStart: io.gatling.core.session.Session => io.gatling.core.session.Session = identity
   override def onExit: io.gatling.core.session.Session => Unit = _ => ()
 }
@@ -115,7 +164,7 @@ case class XccProtocolBuilder(
    * or requires building from individual components.
    * Supports both XCC and XCCS (secure) protocols.
    */
-  def build(): XccProtocol = {
+    def build(): XccProtocol = {
     // Set system property for HTTP compliance
     System.setProperty("xcc.httpcompliant", "true")
     
@@ -123,24 +172,21 @@ case class XccProtocolBuilder(
     logger.debug(s"Building XCC protocol with URI: ${sanitizeUri(connectionUri)}")
     
     val uriObj = new URI(connectionUri)
-    val contentSource = if (uriObj.getScheme.equalsIgnoreCase("xccs")) {
-      logger.info(s"Creating secure XCCS ContentSource for ${sanitizeUri(connectionUri)}")
-      val cs = ContentSourceFactory.newContentSource(uriObj, XccProtocol.securityOptions)
-      
-      // Set authentication preemptive for XCCS/basic by default
-      // Can be disabled by adding authenticationPreemptive=false to the query string
-      if (uriObj.getQuery == null || !uriObj.getQuery.contains("authenticationPreemptive=false")) {
-        logger.trace("Setting authentication preemptive for XCCS connection")
-        cs.setAuthenticationPreemptive(true)
-      }
-      cs
+    
+    // Check if cacheContentSource=false in query string, default to true
+    val shouldCache = uriObj.getQuery == null || !uriObj.getQuery.contains("cacheContentSource=false")
+    logger.debug(s"Cache ContentSource: $shouldCache")
+    
+    val contentSource = if (shouldCache) {
+      val cs = XccProtocol.createContentSource(uriObj, logger)
+      logger.info(s"Created cached ContentSource for ${sanitizeUri(connectionUri)}")
+      Some(cs)
     } else {
-      logger.info(s"Creating standard XCC ContentSource for ${sanitizeUri(connectionUri)}")
-      ContentSourceFactory.newContentSource(uriObj)
+      logger.info(s"ContentSource caching disabled for ${sanitizeUri(connectionUri)}. A new instance is created for each call.")
+      None
     }
     
-    logger.debug(s"Successfully created ContentSource for ${sanitizeUri(connectionUri)}")
-    XccProtocol(connectionUri, contentSource)
+    XccProtocol(connectionUri, contentSource, shouldCache)
   }
   
   /**

@@ -192,6 +192,86 @@ mvn clean compile
 
 ### Run Tests
 
+#### Run Single Simulation
+
+```bash
+mvn gatling:test -Dgatling.simulationClass=com.marklogic.gatling.xcc.example.BasicSimulation
+```
+
+#### Run All Simulations (Windows PowerShell)
+
+The project includes a PowerShell script that automatically runs all 18 example simulations and provides a comprehensive summary:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File run-all-simulations.ps1
+```
+
+**Output includes:**
+- Real-time progress for each simulation
+- Status (PASS/FAIL) for each simulation
+- Request counts (Total and Successful)
+- Final summary table with all results
+- Overall pass/fail statistics
+
+**Example Output:**
+```
+========================================
+Running All Gatling Simulations
+========================================
+
+[1/18] Running: AdvancedSimulation
+----------------------------------------
+Status: PASS | Requests: 4/4
+
+[2/18] Running: BasicSimulation
+----------------------------------------
+Status: PASS | Requests: 2/2
+
+...
+
+========================================
+Summary
+========================================
+
+Simulation                      Status TotalRequests SuccessfulRequests
+----------                      ------ ------------- ------------------
+AdvancedSimulation              PASS               4                  4
+BasicSimulation                 PASS               2                  2
+CachedContentSourceSimulation   PASS               9                  9
+...
+
+Total Simulations: 18
+Passed: 18
+Failed: 0
+
+All simulations passed successfully!
+```
+
+#### Available Simulations
+
+The `run-all-simulations.ps1` script runs all example simulations:
+
+1. **AdvancedSimulation** - CRUD operations with session variables
+2. **BasicSimulation** - Simple XQuery execution
+3. **CachedContentSourceSimulation** - Tests ContentSource caching behavior
+4. **ChecksSimulation** - Response validation examples
+5. **FeederWithSessionSimulation** - CSV feeder integration
+6. **GenerateTestDataSimulation** - Bulk data generation (120 requests)
+7. **JavaScriptSimulation** - JavaScript query execution
+8. **JsonPathSimulation** - JSON response extraction
+9. **MapResultSimulation** - Result mapping examples
+10. **ModuleInvocationSimulation** - Server-side module invocation
+11. **MultipleDocumentsSimulation** - Multi-document operations
+12. **ProtocolConfigurationSimulation** - Protocol configuration examples
+13. **QuickTestSimulation** - Quick connectivity test
+14. **SaveItemsByIndexSimulation** - Multi-item result handling
+15. **XPathExtractAndReuseSimulation** - XPath extraction chaining
+16. **XccsSecureSimulation** - Secure XCCS connection examples
+17. **XmlChainSimplifiedSimulation** - Simplified XML chaining
+18. **XmlResponseChainSimulation** - XML response extraction
+
+#### Run Specific Gatling Tests
+
 ```bash
 mvn test
 ```

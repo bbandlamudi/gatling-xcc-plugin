@@ -195,6 +195,7 @@
                     - com.marklogic.gatling.xcc.example.QuickTestSimulation (default)
                     - com.marklogic.gatling.xcc.example.BasicSimulation
                     - com.marklogic.gatling.xcc.example.AdvancedSimulation
+                    - com.marklogic.gatling.xcc.example.CachedContentSourceSimulation
                     - com.marklogic.gatling.xcc.example.JavaScriptSimulation
                     - com.marklogic.gatling.xcc.example.ModuleInvocationSimulation
                     - com.marklogic.gatling.xcc.example.ChecksSimulation

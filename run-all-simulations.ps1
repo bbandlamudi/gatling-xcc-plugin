@@ -1,6 +1,7 @@
 $simulations = @(
     "AdvancedSimulation",
     "BasicSimulation",
+    "CachedContentSourceSimulation",  
     "ChecksSimulation",
     "FeederWithSessionSimulation",
     "GenerateTestDataSimulation",
