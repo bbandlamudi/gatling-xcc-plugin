@@ -24,8 +24,8 @@ package com.marklogic.gatling.xcc.action
 import io.gatling.commons.stats.{KO, OK}
 import io.gatling.commons.util.Clock
 import io.gatling.commons.validation.{Failure, Success, Validation}
-import io.gatling.core.action.{Action, RequestAction}
-import io.gatling.core.session.{Expression, Session}
+import io.gatling.core.action.{Action, ExitableAction}
+import io.gatling.core.session.Session
 import io.gatling.core.stats.StatsEngine
 import io.gatling.core.structure.ScenarioContext
 import com.marklogic.gatling.xcc.protocol.XccComponents
@@ -35,21 +35,36 @@ import com.marklogic.xcc.{Request, RequestOptions, ResultSequence, Session => Xc
 import com.marklogic.xcc.types.{XdmValue, XdmVariable, XName}
 
 import scala.util.{Try, Success => TrySuccess, Failure => TryFailure}
+import scala.util.control.NonFatal
 
 class XccAction(
   attributes: XccAttributes,
   xccComponents: XccComponents,
   ctx: ScenarioContext,
   val next: Action
-) extends RequestAction {
+) extends ExitableAction {
 
   override val name: String = attributes.requestName
   override val statsEngine: StatsEngine = ctx.coreComponents.statsEngine
   override val clock: Clock = ctx.coreComponents.clock
 
-  override def requestName: Expression[String] = _ => Success(attributes.requestName)
+  // Run the blocking XCC/network I/O on a dedicated executor (see XccProtocol.newComponents),
+  // never on Gatling's shared core dispatcher threads.
+  override def execute(session: Session): Unit =
+    xccComponents.executorService.execute(() => {
+      try {
+        processRequest(session)
+        ()
+      } catch {
+        case NonFatal(ex) =>
+          logger.error(s"Unhandled error executing '${attributes.requestName}'", ex)
+          val now = clock.nowMillis
+          statsEngine.logResponse(session.scenario, session.groups, attributes.requestName, now, now, KO, None, Some(ex.getMessage))
+          next ! session.markAsFailed
+      }
+    })
 
-  override def sendRequest(session: Session): Validation[Unit] = {
+  private def processRequest(session: Session): Validation[Unit] = {
     logger.info(s"Executing XCC request: ${attributes.requestName}")
     val startTime = clock.nowMillis
     var xccSession: XccSession = null

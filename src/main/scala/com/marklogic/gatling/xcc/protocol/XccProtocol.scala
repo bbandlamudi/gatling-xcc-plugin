@@ -29,6 +29,8 @@ import com.typesafe.scalalogging.LazyLogging
 import java.net.URI
 import javax.net.ssl.{SSLContext, X509TrustManager}
 import java.security.cert.X509Certificate
+import java.util.concurrent.{ExecutorService, Executors, ThreadFactory}
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * XCC Protocol configuration
@@ -64,7 +66,19 @@ object XccProtocol {
       throw new IllegalStateException("XCC protocol must be explicitly configured")
     
         override def newComponents(coreComponents: CoreComponents): XccProtocol => XccComponents = {
-      xccProtocol => XccComponents(xccProtocol)
+      // One dedicated executor per simulation run, shared across all XCC actions.
+      // Keeps blocking XCC/network I/O (session creation + submitRequest) off Gatling's
+      // core actor-dispatcher threads, which also service the async Netty HTTP protocols.
+      val executorService: ExecutorService = Executors.newCachedThreadPool(
+        new ThreadFactory() {
+          val identifierGenerator = new AtomicLong()
+          override def newThread(r: Runnable): Thread =
+            new Thread(r, "gatling-xcc-plugin-" + identifierGenerator.getAndIncrement())
+        }
+      )
+      coreComponents.actorSystem.registerOnTermination(() => executorService.shutdown())
+
+      xccProtocol => XccComponents(xccProtocol, executorService)
     }
   }
   
@@ -108,7 +122,7 @@ object XccProtocol {
 /**
  * Components holder for XCC protocol
  */
-case class XccComponents(protocol: XccProtocol) extends io.gatling.core.protocol.ProtocolComponents {
+case class XccComponents(protocol: XccProtocol, executorService: ExecutorService) extends io.gatling.core.protocol.ProtocolComponents {
   override def onStart: io.gatling.core.session.Session => io.gatling.core.session.Session = identity
   override def onExit: io.gatling.core.session.Session => Unit = _ => ()
 }
