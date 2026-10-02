@@ -6,7 +6,7 @@
 
     <groupId>com.marklogic.gatling.xcc</groupId>
     <artifactId>gatling-xcc-plugin</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>Gatling XCC Plugin</name>

@@ -36,6 +36,7 @@ import com.marklogic.xcc.types.{XdmValue, XdmVariable, XName}
 
 import scala.util.{Try, Success => TrySuccess, Failure => TryFailure}
 import scala.util.control.NonFatal
+import java.util.concurrent.RejectedExecutionException
 
 class XccAction(
   attributes: XccAttributes,
@@ -51,18 +52,30 @@ class XccAction(
   // Run the blocking XCC/network I/O on a dedicated executor (see XccProtocol.newComponents),
   // never on Gatling's shared core dispatcher threads.
   override def execute(session: Session): Unit =
-    xccComponents.executorService.execute(() => {
-      try {
-        processRequest(session)
-        ()
-      } catch {
-        case NonFatal(ex) =>
-          logger.error(s"Unhandled error executing '${attributes.requestName}'", ex)
-          val now = clock.nowMillis
-          statsEngine.logResponse(session.scenario, session.groups, attributes.requestName, now, now, KO, None, Some(ex.getMessage))
-          next ! session.markAsFailed
-      }
-    })
+    try {
+      xccComponents.executorService.execute(() => {
+        try {
+          processRequest(session)
+          ()
+        } catch {
+          case NonFatal(ex) =>
+            logger.error(s"Unhandled error executing '${attributes.requestName}'", ex)
+            val now = clock.nowMillis
+            statsEngine.logResponse(session.scenario, session.groups, attributes.requestName, now, now, KO, None, Some(ex.getMessage))
+            next ! session.markAsFailed
+        }
+      })
+    } catch {
+      // Last-resort safety net: both the thread cap and the queue are full.
+      // Should not happen in normal overload - queueing should absorb it well
+      // before this - but surfaces as a visible failure in the report instead
+      // of propagating onto Gatling's dispatcher.
+      case ex: RejectedExecutionException =>
+        logger.error(s"XCC executor saturated, rejecting '${attributes.requestName}'", ex)
+        val now = clock.nowMillis
+        statsEngine.logResponse(session.scenario, session.groups, attributes.requestName, now, now, KO, None, Some("XCC executor saturated"))
+        next ! session.markAsFailed
+    }
 
   private def processRequest(session: Session): Validation[Unit] = {
     logger.info(s"Executing XCC request: ${attributes.requestName}")

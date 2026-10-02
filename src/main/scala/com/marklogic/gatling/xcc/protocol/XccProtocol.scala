@@ -29,7 +29,7 @@ import com.typesafe.scalalogging.LazyLogging
 import java.net.URI
 import javax.net.ssl.{SSLContext, X509TrustManager}
 import java.security.cert.X509Certificate
-import java.util.concurrent.{ExecutorService, Executors, ThreadFactory}
+import java.util.concurrent.{ExecutorService, LinkedBlockingQueue, ThreadFactory, ThreadPoolExecutor, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -57,25 +57,65 @@ case class XccProtocol(
   }
 }
 
-object XccProtocol {
+/**
+ * Resolved sizing for the dedicated XCC executor (see XccProtocol.resolveExecutorConfig).
+ */
+case class XccExecutorConfig(coreThreads: Int, maxThreads: Int, queueCapacity: Int)
+
+object XccProtocol extends LazyLogging {
+  // Core == max by default so the pool scales to the full cap on demand
+  // before queueing rather than queuing behind a low floor. Override
+  // coreThreads explicitly only if you deliberately want a lower-floor-then-
+  // queue behavior: with a deep queue, the pool won't grow past coreThreads
+  // until the queue is full.
+  val DefaultMaxThreads: Int = 15000
+  val DefaultQueueCapacity: Int = 100000
+
+  /**
+   * Resolve the dedicated XCC executor's thread pool sizing from system properties,
+   * falling back to the defaults above. coreThreads defaults to whatever maxThreads
+   * resolved to when not explicitly set.
+   */
+  def resolveExecutorConfig(): XccExecutorConfig = {
+    val maxThreads = Integer.getInteger("gatling.xcc.executor.maxThreads", DefaultMaxThreads).intValue()
+    val coreThreads = Integer.getInteger("gatling.xcc.executor.coreThreads", maxThreads).intValue()
+    val queueCapacity = Integer.getInteger("gatling.xcc.executor.queueCapacity", DefaultQueueCapacity).intValue()
+    XccExecutorConfig(coreThreads, maxThreads, queueCapacity)
+  }
+
   val XccProtocolKey: ProtocolKey[XccProtocol, XccComponents] = new ProtocolKey[XccProtocol, XccComponents] {
-    override def protocolClass: Class[Protocol] = 
+    override def protocolClass: Class[Protocol] =
       classOf[XccProtocol].asInstanceOf[Class[Protocol]]
-    
-    override def defaultProtocolValue(configuration: GatlingConfiguration): XccProtocol = 
+
+    override def defaultProtocolValue(configuration: GatlingConfiguration): XccProtocol =
       throw new IllegalStateException("XCC protocol must be explicitly configured")
-    
+
         override def newComponents(coreComponents: CoreComponents): XccProtocol => XccComponents = {
       // One dedicated executor per simulation run, shared across all XCC actions.
       // Keeps blocking XCC/network I/O (session creation + submitRequest) off Gatling's
       // core actor-dispatcher threads, which also service the async Netty HTTP protocols.
-      val executorService: ExecutorService = Executors.newCachedThreadPool(
-        new ThreadFactory() {
-          val identifierGenerator = new AtomicLong()
-          override def newThread(r: Runnable): Thread =
-            new Thread(r, "gatling-xcc-plugin-" + identifierGenerator.getAndIncrement())
-        }
-      )
+      // Bounded: core == max (by default) caps native thread growth (prevents
+      // pthread_create EAGAIN/OOM under sustained high load), allowCoreThreadTimeOut
+      // lets the pool shrink back down when idle, and the bounded queue absorbs
+      // overflow beyond the thread cap as queueing (higher response times) rather
+      // than rejecting. All three are tunable per run without a rebuild.
+      val config = resolveExecutorConfig()
+      println(s"XccProtocol executor service configured: coreThreads=${config.coreThreads}, maxThreads=${config.maxThreads}, queueCapacity=${config.queueCapacity}")
+
+      val executorService: ExecutorService = {
+        val pool = new ThreadPoolExecutor(
+          config.coreThreads, config.maxThreads,
+          60L, TimeUnit.SECONDS,
+          new LinkedBlockingQueue[Runnable](config.queueCapacity),
+          new ThreadFactory() {
+            val identifierGenerator = new AtomicLong()
+            override def newThread(r: Runnable): Thread =
+              new Thread(r, "gatling-xcc-plugin-" + identifierGenerator.getAndIncrement())
+          }
+        )
+        pool.allowCoreThreadTimeOut(true)
+        pool
+      }
       coreComponents.actorSystem.registerOnTermination(() => executorService.shutdown())
 
       xccProtocol => XccComponents(xccProtocol, executorService)

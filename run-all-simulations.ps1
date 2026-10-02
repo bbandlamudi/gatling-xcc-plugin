@@ -1,10 +1,10 @@
 $simulations = @(
+    "GenerateTestDataSimulation",
     "AdvancedSimulation",
     "BasicSimulation",
-    "CachedContentSourceSimulation",  
+    "CachedContentSourceSimulation",
     "ChecksSimulation",
     "FeederWithSessionSimulation",
-    "GenerateTestDataSimulation",
     "JavaScriptSimulation",
     "JsonPathSimulation",
     "MapResultSimulation",
@@ -20,6 +20,22 @@ $simulations = @(
 )
 
 $results = @()
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Running Unit Tests" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+$unitTestOutput = & mvn test "-Dtest=XccPluginTest" 2>&1
+$unitTestsPassed = $unitTestOutput -match "BUILD SUCCESS"
+
+if ($unitTestsPassed) {
+    Write-Host "XccPluginTest: PASS" -ForegroundColor Green
+} else {
+    Write-Host "XccPluginTest: FAIL" -ForegroundColor Red
+    Write-Host "Check output above for details." -ForegroundColor Red
+}
+Write-Host ""
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Running All Gatling Simulations" -ForegroundColor Cyan

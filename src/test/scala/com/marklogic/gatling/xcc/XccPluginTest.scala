@@ -23,10 +23,56 @@ package com.marklogic.gatling.xcc
 
 import io.gatling.core.Predef._
 import com.marklogic.gatling.xcc.Predef._
+import com.marklogic.gatling.xcc.protocol.XccProtocol
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class XccPluginTest extends AnyFlatSpec with Matchers {
+
+  private val maxThreadsProp = "gatling.xcc.executor.maxThreads"
+  private val coreThreadsProp = "gatling.xcc.executor.coreThreads"
+  private val queueCapacityProp = "gatling.xcc.executor.queueCapacity"
+
+  private def withSystemProperties(props: (String, String)*)(test: => Unit): Unit = {
+    try {
+      props.foreach { case (key, value) => System.setProperty(key, value) }
+      test
+    } finally {
+      props.foreach { case (key, _) => System.clearProperty(key) }
+    }
+  }
+
+  "XccProtocol executor configuration" should "default coreThreads and maxThreads and queueCapacity when no system properties are set" in {
+    val config = XccProtocol.resolveExecutorConfig()
+
+    config.maxThreads should be(XccProtocol.DefaultMaxThreads)
+    config.coreThreads should be(XccProtocol.DefaultMaxThreads)
+    config.queueCapacity should be(XccProtocol.DefaultQueueCapacity)
+  }
+
+  it should "default coreThreads to maxThreads when only maxThreads is overridden" in {
+    withSystemProperties(maxThreadsProp -> "777") {
+      val config = XccProtocol.resolveExecutorConfig()
+
+      config.maxThreads should be(777)
+      config.coreThreads should be(777)
+      config.queueCapacity should be(XccProtocol.DefaultQueueCapacity)
+    }
+  }
+
+  it should "honor explicit overrides for coreThreads, maxThreads and queueCapacity" in {
+    withSystemProperties(
+      maxThreadsProp -> "500",
+      coreThreadsProp -> "100",
+      queueCapacityProp -> "2000"
+    ) {
+      val config = XccProtocol.resolveExecutorConfig()
+
+      config.maxThreads should be(500)
+      config.coreThreads should be(100)
+      config.queueCapacity should be(2000)
+    }
+  }
 
   "XccProtocolBuilder" should "build a protocol with basic configuration" in {
 
