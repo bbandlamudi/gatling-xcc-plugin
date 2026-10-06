@@ -17,6 +17,7 @@ A Gatling plugin for load testing MarkLogic databases using the XCC (XML Content
 - Java 17+
 - Scala 2.13.17
 - Gatling 3.15.1
+- MarkLogic XCC 11.3.0 (built/tested against this version; later versions should work fine)
 - MarkLogic Server with XCC enabled
 
 ## Install
